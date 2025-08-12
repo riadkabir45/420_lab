@@ -14,7 +14,14 @@ private:
         int hash_value = 0;
         for (char c : name)
         {
-            hash_value += ((int)c - (int)'a');
+            if (c >= 'A' && c <= 'Z')
+                hash_value += ((int)c - (int)'A');
+            else if (c >= 'a' && c <= 'z')
+                hash_value += ((int)c - (int)'a' + 26);
+            else if (c >= '0' && c <= '9')
+                hash_value += ((int)c - (int)'0' + 52);
+            else
+                hash_value += (int)c;
         }
         return hash_value % bucket_count;
     }
@@ -56,23 +63,36 @@ scope_table *scope_table::get_parent_scope()
 
 bool scope_table::insert_in_scope(symbol_info* symbol)
 {
-    int index = hash_function(symbol->get_name());
+    int index = hash_function(symbol->getname());
     table[index].push_back(symbol);
     return true;
 }
 
 bool scope_table::delete_from_scope(symbol_info* symbol)
 {
-    int index = hash_function(symbol->get_name());
+    int index = hash_function(symbol->getname());
     for (auto it = table[index].begin(); it != table[index].end(); ++it)
     {
-        if ((*it)->get_name() == symbol->get_name())
+        if ((*it)->getname() == symbol->getname())
         {
             table[index].erase(it);
             return true;
         }
     }
     return false;
+}
+
+symbol_info* scope_table::lookup_in_scope(symbol_info* symbol)
+{
+    int index = hash_function(symbol->getname());
+    for (auto it = table[index].begin(); it != table[index].end(); ++it)
+    {
+        if ((*it)->getname() == symbol->getname())
+        {
+            return *it;
+        }
+    }
+    return NULL;
 }
 
 // complete the methods of scope_table class
@@ -88,7 +108,7 @@ void scope_table::print_scope_table(ofstream& outlog)
             for (auto symbol : *bucket_it)
             {
                 outlog << to_string(counter++) << " --> " << endl;
-                outlog << "< " << symbol->get_name() << " : ID >" << endl;
+                outlog << "< " << symbol->getname() << " : ID >" << endl;
 
                 if(symbol->is_variable())
                     outlog << "Variable" << endl;
@@ -107,11 +127,11 @@ void scope_table::print_scope_table(ofstream& outlog)
                     for(auto param : symbol->get_parameters())
                     {
                         if(first_param){
-                            outlog << param.get_type() << " " << param.get_name();
+                            outlog << param->get_type() << " " << param->getname();
                             first_param = false;
                         }
                         else
-                            outlog << ", " << param.get_type() << " " << param.get_name();
+                            outlog << ", " << param->get_type() << " " << param->getname();
                     }
                     outlog << endl;
                 }else{

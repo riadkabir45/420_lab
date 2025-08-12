@@ -2,7 +2,7 @@
 
 %{
 
-#include"symbol_info.h"
+#include "symbol_info.h"
 
 #define YYSTYPE symbol_info*
 

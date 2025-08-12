@@ -13,17 +13,14 @@ class symbol_info
 private:
     string name;
     string type;
-
-    // Write necessary attributes to store what type of symbol it is (variable/array/function)
     symbol_type sym_type;
-    // Write necessary attributes to store the type/return type of the symbol (int/float/void/...)
-    // Write necessary attributes to store the parameters of a function
-    vector<symbol_info> parameters;
-    // Write necessary attributes to store the array size if the symbol is an array
+    // Change to list of pointers
+    list<symbol_info*> parameters;
     int array_size = -1;
 
 public:
-    symbol_info(string name, string type, symbol_type sym_type = symbol_type::VARIABLE, vector<symbol_info> parameters = {}, int array_size = -1)
+    // Update constructor
+    symbol_info(string name, string type, symbol_type sym_type = symbol_type::VARIABLE, list<symbol_info*> parameters = {}, int array_size = -1)
     {
         this->name = name;
         this->type = type;
@@ -31,13 +28,13 @@ public:
         if (sym_type == symbol_type::FUNCTION)
         {
             this->parameters = parameters;
-        }else if (sym_type == symbol_type::ARRAY)
+        } else if (sym_type == symbol_type::ARRAY)
         {
             this->array_size = array_size;
         }
     }
 
-    string get_name()
+    string getname()
     {
         return name;
     }
@@ -68,15 +65,10 @@ public:
         this->sym_type = type;
     }
 
-    vector<symbol_info> get_parameters()
-    {
-        return parameters;
-    }
-
-    void set_parameters(vector<symbol_info> params)
-    {
-        this->parameters = params;
-    }
+    // Update getters and setters
+    list<symbol_info*> get_parameters() { return parameters; }
+    void set_parameters(list<symbol_info*> params) { parameters = params; }
+    void add_parameter(symbol_info* param) { parameters.push_back(param); }
 
     int get_array_size()
     {
@@ -105,7 +97,10 @@ public:
 
     ~symbol_info()
     {
-        // Write necessary code to deallocate memory, if necessary
+        // If you own the pointers, delete them here
+        for (auto ptr : parameters) {
+            delete ptr;
+        }
         parameters.clear();
     }
 };
