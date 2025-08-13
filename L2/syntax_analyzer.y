@@ -155,7 +155,6 @@ parameter_list : parameter_list COMMA type_specifier ID
             // They will be needed when you want to enter the function into the symbol table
 			
 			fn_name.top()->add_parameter(addSymbol($4->getname(),$3->getname()));
-			enterScopeDecl();
 		}
 		| parameter_list COMMA type_specifier
 		{
@@ -190,18 +189,18 @@ parameter_list : parameter_list COMMA type_specifier ID
 		}
  		;
 
-compound_statement : LCURL statements RCURL
+compound_statement : LCURL { enterScopeDecl(); } statements RCURL
 			{ 
  		    	outlog<<"At line no: "<<lines<<" compound_statement : LCURL statements RCURL "<<endl<<endl;
-				outlog<<"{\n"+$2->getname()+"\n}"<<endl<<endl;
+				outlog<<"{\n"+$3->getname()+"\n}"<<endl<<endl;
 				
-				$$ = new symbol_info("{\n"+$2->getname()+"\n}","comp_stmnt");
+				$$ = new symbol_info("{\n"+$3->getname()+"\n}","comp_stmnt");
 				
                 // The compound statement is complete.
                 // Print the symbol table here and exit the scope
                 // Note that function parameters should be in the current scope
  		    }
- 		    | LCURL RCURL
+ 		    | LCURL { enterScopeDecl(); } RCURL
  		    { 
  		    	outlog<<"At line no: "<<lines<<" compound_statement : LCURL RCURL "<<endl<<endl;
 				outlog<<"{\n}"<<endl<<endl;
@@ -244,7 +243,6 @@ type_specifier : INT
  		{
 			outlog<<"At line no: "<<lines<<" type_specifier : VOID "<<endl<<endl;
 			outlog<<"void"<<endl<<endl;
-			enterScopeDecl();
 			$$ = new symbol_info("void","type");
 	    }
  		;
@@ -336,12 +334,13 @@ statement : var_declaration
 			
 			$$ = new symbol_info($1->getname(),"stmnt");
 	  }
-	  | FOR LPAREN expression_statement expression_statement expression RPAREN statement
+	  | FOR LPAREN { sym_table->enter_scope(); } expression_statement expression_statement expression RPAREN statement
 	  {
+			exitScopeDecl();
 	    	outlog<<"At line no: "<<lines<<" statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement "<<endl<<endl;
-			outlog<<"for("<<$3->getname()<<$4->getname()<<$5->getname()<<")\n"<<$7->getname()<<endl<<endl;
-			
-			$$ = new symbol_info("for("+$3->getname()+$4->getname()+$5->getname()+")\n"+$7->getname(),"stmnt");
+			outlog<<"for("<<$4->getname()<<$5->getname()<<$6->getname()<<")\n"<<$8->getname()<<endl<<endl;
+
+			$$ = new symbol_info("for("+$4->getname()+$5->getname()+$6->getname()+")\n"+$8->getname(),"stmnt");
 	  }
 	  | IF LPAREN expression RPAREN statement %prec LOWER_THAN_ELSE
 	  {
@@ -357,12 +356,13 @@ statement : var_declaration
 			
 			$$ = new symbol_info("if("+$3->getname()+")\n"+$5->getname()+"\nelse\n"+$7->getname(),"stmnt");
 	  }
-	  | WHILE LPAREN expression RPAREN statement
+	  | WHILE LPAREN { sym_table->enter_scope(); } expression RPAREN statement
 	  {
+			exitScopeDecl();
 	    	outlog<<"At line no: "<<lines<<" statement : WHILE LPAREN expression RPAREN statement "<<endl<<endl;
-			outlog<<"while("<<$3->getname()<<")\n"<<$5->getname()<<endl<<endl;
-			
-			$$ = new symbol_info("while("+$3->getname()+")\n"+$5->getname(),"stmnt");
+			outlog<<"while("<<$4->getname()<<")\n"<<$6->getname()<<endl<<endl;
+
+			$$ = new symbol_info("while("+$4->getname()+")\n"+$6->getname(),"stmnt");
 	  }
 	  | PRINTLN LPAREN ID RPAREN SEMICOLON
 	  {

@@ -16,6 +16,7 @@ public:
     symbol_info* lookup(symbol_info* symbol);
     void print_current_scope(ofstream& outlog);
     void print_all_scopes(ofstream& outlog);
+    void print_scope_hierarchy(ofstream& outlog);
 
     // you can add more methods if you need 
     int get_current_scope_id();
@@ -25,7 +26,25 @@ public:
 
 int symbol_table::get_current_scope_id()
 {
-    return current_scope_id;
+    if (current_scope != NULL)
+    {
+        return current_scope->get_unique_id();
+    }
+    return 0;
+}
+
+void symbol_table::print_scope_hierarchy(ofstream& outlog)
+{
+    outlog << "Scope Hierarchy: ";
+    scope_table *temp = current_scope;
+    while (temp != NULL)
+    {
+        if(temp != current_scope)
+            outlog << " -> ";
+        outlog << temp->get_unique_id();
+        temp = temp->get_parent_scope();
+    }
+    outlog << endl;
 }
 
 symbol_table::symbol_table(int bucket_count)
@@ -49,7 +68,6 @@ void symbol_table::exit_scope()
         scope_table *temp = current_scope;
         current_scope = current_scope->get_parent_scope();
         delete temp;
-        current_scope_id--;
     }
 }
 
@@ -79,9 +97,7 @@ symbol_info* symbol_table::lookup(symbol_info* symbol)
 
 void symbol_table::print_current_scope(ofstream& outlog)
 {
-    outlog << "################################" << endl << endl;
     current_scope->print_scope_table(outlog);
-    outlog << "################################" << endl << endl;
 }
 
 void symbol_table::print_all_scopes(ofstream& outlog)
