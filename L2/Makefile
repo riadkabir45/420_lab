@@ -7,8 +7,18 @@ all:
 	make clean
 
 clean:
-	rm  l.o lex.yy.c y.o y.output y.tab.c y.tab.h
+	for f in l.o lex.yy.c y.o y.output y.tab.c y.tab.h;\
+	do \
+		if [ -e "$$f" ]; then \
+			rm "$$f"; \
+		fi; \
+	done
 
 fclean:
 	make clean
-	rm my_log.txt a.out
+	for f in my_log.txt a.out;\
+	do \
+		if [ -e "$$f" ]; then \
+			rm "$$f"; \
+		fi; \
+	done
