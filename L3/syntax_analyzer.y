@@ -43,6 +43,10 @@ betterQueue<symbol_info*> arg_list;
 string current_arg_type = "";
 symbol_type current_arg_sym_type = symbol_type::VARIABLE;
 bool multipleFn = false;
+bool inExpression = false;
+symbol_info* lastVar = nullptr;
+stack<symbol_info*> leftOp;
+string rightOp = "";
 
 
 
@@ -431,6 +435,11 @@ statement : var_declaration
 	  {
 	    	outlog<<"At line no: "<<lines<<" statement : PRINTLN LPAREN ID RPAREN SEMICOLON "<<endl<<endl;
 			outlog<<"printf("<<$3->getname()<<");"<<endl<<endl; 
+
+			symbol_info* found_symbol = sym_table->check_in_all_scope($3);
+			if (found_symbol == NULL) {
+				outlog << "At line no: "<<lines<<" Undeclared variable "<<$3->getname() << endl << endl;
+			}
 			
 			$$ = new symbol_info("printf("+$3->getname()+");","stmnt");
 	  }
@@ -463,6 +472,17 @@ variable : ID
       {
 	    outlog<<"At line no: "<<lines<<" variable : ID "<<endl<<endl;
 		outlog<<$1->getname()<<endl<<endl;
+
+		//sym_table->print_all_scopes(outlog);
+
+		symbol_info* found_symbol = sym_table->check_in_all_scope($1);
+		if (found_symbol != NULL) {
+			lastVar = found_symbol;
+			if(found_symbol->get_symbol_type() != symbol_type::VARIABLE)
+				outlog << "At line no: "<<lines<<" variable is of array type : "<<$1->getname() << endl << endl;
+		} else {
+			outlog << "At line no: "<<lines<<" Undeclared variable "<<$1->getname() << endl << endl;
+		}
 			
 		$$ = new symbol_info($1->getname(),"varbl");
 		
@@ -471,6 +491,20 @@ variable : ID
 	 {
 	 	outlog<<"At line no: "<<lines<<" variable : ID LTHIRD expression RTHIRD "<<endl<<endl;
 		outlog<<$1->getname()<<"["<<$3->getname()<<"]"<<endl<<endl;
+		
+
+		symbol_info* found_symbol = sym_table->check_in_all_scope($1);
+		if (found_symbol != NULL) {
+			lastVar = found_symbol;
+			if(found_symbol->get_symbol_type() != symbol_type::ARRAY)
+				outlog << "At line no: "<<lines<<" variable is not of array type : "<<$1->getname() << endl << endl;
+		} else {
+			outlog << "At line no: "<<lines<<" Undeclared variable "<<$1->getname() << endl << endl;
+		}
+		// mfs
+		if(current_arg_type != "int") {
+			outlog << "At line no: "<<lines<<" array index is not of integer type : "<<$1->getname() << endl << endl;
+		}
 
 		current_arg_sym_type = symbol_type::ARRAY;
 		
@@ -485,12 +519,20 @@ expression : logic_expression
 			
 			$$ = new symbol_info($1->getname(),"expr");
 	   }
-	   | variable ASSIGNOP logic_expression 	
+	   | variable ASSIGNOP {  inExpression = true; leftOp.push(lastVar); } logic_expression 	
 	   {
 	    	outlog<<"At line no: "<<lines<<" expression : variable ASSIGNOP logic_expression "<<endl<<endl;
-			outlog<<$1->getname()<<"="<<$3->getname()<<endl<<endl;
+			outlog<<$1->getname()<<"="<<$4->getname()<<endl<<endl;
 
-			$$ = new symbol_info($1->getname()+"="+$3->getname(),"expr");
+			if(current_arg_type == "void")
+				outlog<<"At line no: "<<lines<<" operation on void type"<<endl<<endl;
+
+			if(leftOp.top()->get_type() != "float" && rightOp == "float")
+				outlog<<"At line no: "<<lines<<" Warning: Assignment of float value into variable of integer type"<<endl<<endl;
+
+			rightOp = "";
+			inExpression = false;
+			$$ = new symbol_info($1->getname()+"="+$4->getname(),"expr");
 	   }
 	   ;
 			
@@ -555,7 +597,16 @@ term :	unary_expression //term can be void because of un_expr->factor
      {
 	    	outlog<<"At line no: "<<lines<<" term : term MULOP unary_expression "<<endl<<endl;
 			outlog<<$1->getname()<<$2->getname()<<$3->getname()<<endl<<endl;
+
+			if(current_arg_type == "void")
+				outlog<<"At line no: "<<lines<<" operation on void type"<<endl<<endl;
 			
+			if($2->getname() == "%" && $3->getname() == "0")
+				outlog<<"At line no: "<<lines<<" Modulus by 0"<<endl<<endl;
+			
+			else if($2->getname() == "%" && rightOp != "int")
+				outlog<<"At line no: "<<lines<<" Modulus operator on non integer type"<<endl<<endl;
+
 			$$ = new symbol_info($1->getname()+$2->getname()+$3->getname(),"term");
 			
 	 }
@@ -579,7 +630,8 @@ unary_expression : ADDOP unary_expression  // un_expr can be void because of fac
 		 {
 	    	outlog<<"At line no: "<<lines<<" unary_expression : factor "<<endl<<endl;
 			outlog<<$1->getname()<<endl<<endl;
-			
+
+
 			$$ = new symbol_info($1->getname(),"un_expr");
 	     }
 		 ;
@@ -596,19 +648,41 @@ factor	: variable
 	    outlog<<"At line no: "<<lines<<" factor : ID LPAREN argument_list RPAREN "<<endl<<endl;
 		outlog<<$1->getname()<<"("<<$4->getname()<<")"<<endl<<endl;
 
-		// print all symbols in arg_list
-		int arg_pos = 1;
+		// Check function call arguments
 		symbol_info* found_fn = sym_table->check_in_all_scope($1);
-		if (found_fn != NULL) {
-			while (!arg_list.empty() && found_fn->get_parameters().size() > 0) {
-				symbol_info* arg = arg_list.front();
-				symbol_info* found_param = found_fn->get_parameters().front();
-				if(found_param->get_type() != arg->get_type())
+		if (found_fn != NULL && found_fn->is_function()) {
+			list<symbol_info*> param_list = found_fn->get_parameters();
+			
+			if (arg_list.size() != param_list.size()) {
+				outlog << "At line no: "<<lines<<" Inconsistencies in number of arguments in function call: " << $1->getname() << endl << endl;
+			}
+			
+			int arg_pos = 1;
+			auto param_it = param_list.begin();
+			betterQueue<symbol_info*> temp_queue = arg_list; // Copy to preserve original
+			
+			while ((!temp_queue.empty() && param_it != param_list.end()) && arg_list.size() == param_list.size()) {
+				symbol_info* arg = temp_queue.front();
+				symbol_info* param = *param_it;
+				
+				if (param->get_type() != arg->get_type()) {
 					outlog << "At line no: "<<lines<<" argument "<<arg_pos<<" type mismatch in function call: " << $1->getname() << endl << endl;
-				arg_list.pop();
+				}
+				
+				temp_queue.pop();
+				++param_it;
 				arg_pos++;
 			}
+
+			
+			current_arg_type = found_fn->get_type();
+			//current_arg_sym_type = symbol_type::VARIABLE; idk
+
+		} else {
+			outlog << "At line no: "<<lines<<" Undeclared function: " << $1->getname() << endl << endl;
 		}
+
+
 
 		$$ = new symbol_info($1->getname()+"("+$4->getname()+")","fctr");
 	}
@@ -616,7 +690,6 @@ factor	: variable
 	{
 	   	outlog<<"At line no: "<<lines<<" factor : LPAREN expression RPAREN "<<endl<<endl;
 		outlog<<"("<<$2->getname()<<")"<<endl<<endl;
-		
 		$$ = new symbol_info("("+$2->getname()+")","fctr");
 	}
 	| CONST_INT 
@@ -636,7 +709,10 @@ factor	: variable
 
 		current_arg_type = "float";
 		current_arg_sym_type = symbol_type::VARIABLE;
-			
+
+		if(inExpression)
+			rightOp = "float";
+
 		$$ = new symbol_info($1->getname(),"fctr");
 	}
 	| variable INCOP 

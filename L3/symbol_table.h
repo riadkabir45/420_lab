@@ -128,14 +128,15 @@ symbol_info* symbol_table::check_in_current_scope(symbol_info* symbol)
 
 symbol_info* symbol_table::check_in_all_scope(symbol_info* symbol)
 {
-    while (current_scope != NULL)
+    scope_table* tmp_scope = current_scope;
+    while (tmp_scope != NULL)
     {
-        symbol_info* found = current_scope->checkExists(symbol);
+        symbol_info* found = tmp_scope->checkExists(symbol);
         if (found != NULL)
         {
             return found;
         }
-        current_scope = current_scope->get_parent_scope();
+        tmp_scope = tmp_scope->get_parent_scope();
     }
     return NULL;
 }

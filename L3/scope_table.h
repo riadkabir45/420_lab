@@ -137,7 +137,10 @@ void scope_table::print_scope_table(ofstream& outlog)
                             outlog << ", " << param->get_type() << " " << param->getname();
                     }
                 }else{
-                    outlog << "Type: " << symbol->get_type();
+                    if(symbol->is_variable() && symbol->get_type() == "void")
+                        outlog << "Type: " << "error";
+                    else
+                        outlog << "Type: " << symbol->get_type();
                 }
                 if(symbol->is_array())
                     outlog << "Size: " << symbol->get_array_size();
