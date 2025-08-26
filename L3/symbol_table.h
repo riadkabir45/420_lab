@@ -21,6 +21,7 @@ public:
     // you can add more methods if you need 
     int get_current_scope_id();
     symbol_info* check_in_current_scope(symbol_info* symbol);
+    symbol_info* check_in_all_scope(symbol_info* symbol);
 };
 
 // complete the methods of symbol_table class
@@ -120,6 +121,21 @@ symbol_info* symbol_table::check_in_current_scope(symbol_info* symbol)
     if (current_scope != NULL)
     {
         return current_scope->checkExists(symbol);
+    }
+    return NULL;
+}
+
+
+symbol_info* symbol_table::check_in_all_scope(symbol_info* symbol)
+{
+    while (current_scope != NULL)
+    {
+        symbol_info* found = current_scope->checkExists(symbol);
+        if (found != NULL)
+        {
+            return found;
+        }
+        current_scope = current_scope->get_parent_scope();
     }
     return NULL;
 }

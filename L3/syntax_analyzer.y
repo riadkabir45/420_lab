@@ -21,9 +21,27 @@ ofstream outlog;
 // you may declare other necessary variables here to store necessary info
 // such as current variable type, variable list, function name, return type, function parameter types, parameters names etc.
 
+
+template<typename T>
+class betterQueue : public std::queue<T> {
+public:
+    void clear() {
+        // Method 1: Assign empty queue
+        //*this = betterQueue<T>();
+        
+        //Or Method 2: Pop all elements
+        while (!this->empty()) {
+            this->pop();
+        }
+    }
+};
+
 string current_var_type = "";
 list<string> var_list;
 stack<symbol_info*> fn_name;
+betterQueue<symbol_info*> arg_list;
+string current_arg_type = "";
+symbol_type current_arg_sym_type = symbol_type::VARIABLE;
 bool multipleFn = false;
 
 
@@ -298,6 +316,9 @@ declaration_list : declaration_list COMMA ID
  		  	outlog<<$1->getname()+","<<$3->getname()<<"["<<$5->getname()<<"]"<<endl<<endl;
 
             // you may need to store the variable names to insert them in symbol table here or later
+			if(sym_table->check_in_current_scope($3)){
+				var_list.push_back($3->getname());
+			}
 
 			addSymbol($3->getname(),current_var_type,symbol_type::ARRAY,stoi($5->getname()));
 			$$ = new symbol_info($1->getname()+","+$3->getname()+"["+ $5->getname()+"]","decl_list");
@@ -322,7 +343,11 @@ declaration_list : declaration_list COMMA ID
 			outlog<<$1->getname()<<"["<<$3->getname()<<"]"<<endl<<endl;
 
             // you may need to store the variable names to insert them in symbol table here or later
-            
+			if(sym_table->check_in_current_scope($1)){
+				var_list.push_back($1->getname());
+			}
+			addSymbol($1->getname(),current_var_type,symbol_type::ARRAY,stoi($3->getname()));
+			$$ = new symbol_info($1->getname()+"["+ $3->getname()+"]","decl_list");
  		  }
  		  ;
  		  
@@ -446,6 +471,8 @@ variable : ID
 	 {
 	 	outlog<<"At line no: "<<lines<<" variable : ID LTHIRD expression RTHIRD "<<endl<<endl;
 		outlog<<$1->getname()<<"["<<$3->getname()<<"]"<<endl<<endl;
+
+		current_arg_sym_type = symbol_type::ARRAY;
 		
 		$$ = new symbol_info($1->getname()+"["+$3->getname()+"]","varbl");
 	 }
@@ -564,12 +591,26 @@ factor	: variable
 			
 		$$ = new symbol_info($1->getname(),"fctr");
 	}
-	| ID LPAREN argument_list RPAREN
+	| ID LPAREN  { arg_list.clear(); } argument_list RPAREN
 	{
 	    outlog<<"At line no: "<<lines<<" factor : ID LPAREN argument_list RPAREN "<<endl<<endl;
-		outlog<<$1->getname()<<"("<<$3->getname()<<")"<<endl<<endl;
+		outlog<<$1->getname()<<"("<<$4->getname()<<")"<<endl<<endl;
 
-		$$ = new symbol_info($1->getname()+"("+$3->getname()+")","fctr");
+		// print all symbols in arg_list
+		int arg_pos = 1;
+		symbol_info* found_fn = sym_table->check_in_all_scope($1);
+		if (found_fn != NULL) {
+			while (!arg_list.empty() && found_fn->get_parameters().size() > 0) {
+				symbol_info* arg = arg_list.front();
+				symbol_info* found_param = found_fn->get_parameters().front();
+				if(found_param->get_type() != arg->get_type())
+					outlog << "At line no: "<<lines<<" argument "<<arg_pos<<" type mismatch in function call: " << $1->getname() << endl << endl;
+				arg_list.pop();
+				arg_pos++;
+			}
+		}
+
+		$$ = new symbol_info($1->getname()+"("+$4->getname()+")","fctr");
 	}
 	| LPAREN expression RPAREN
 	{
@@ -582,6 +623,9 @@ factor	: variable
 	{
 	    outlog<<"At line no: "<<lines<<" factor : CONST_INT "<<endl<<endl;
 		outlog<<$1->getname()<<endl<<endl;
+
+		current_arg_type = "int";
+		current_arg_sym_type = symbol_type::VARIABLE;
 			
 		$$ = new symbol_info($1->getname(),"fctr");
 	}
@@ -589,6 +633,9 @@ factor	: variable
 	{
 	    outlog<<"At line no: "<<lines<<" factor : CONST_FLOAT "<<endl<<endl;
 		outlog<<$1->getname()<<endl<<endl;
+
+		current_arg_type = "float";
+		current_arg_sym_type = symbol_type::VARIABLE;
 			
 		$$ = new symbol_info($1->getname(),"fctr");
 	}
@@ -628,6 +675,8 @@ arguments : arguments COMMA logic_expression
 		  {
 				outlog<<"At line no: "<<lines<<" arguments : arguments COMMA logic_expression "<<endl<<endl;
 				outlog<<$1->getname()<<","<<$3->getname()<<endl<<endl;
+
+				arg_list.push(new symbol_info($3->getname(),current_arg_type));
 						
 				$$ = new symbol_info($1->getname()+","+$3->getname(),"arg");
 		  }
@@ -635,6 +684,8 @@ arguments : arguments COMMA logic_expression
 	      {
 				outlog<<"At line no: "<<lines<<" arguments : logic_expression "<<endl<<endl;
 				outlog<<$1->getname()<<endl<<endl;
+
+				arg_list.push(new symbol_info($1->getname(),current_arg_type));
 						
 				$$ = new symbol_info($1->getname(),"arg");
 		  }
