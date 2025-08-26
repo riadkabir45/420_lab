@@ -143,6 +143,8 @@ void scope_table::print_scope_table(ofstream& outlog)
                         outlog << "Type: " << symbol->get_type();
                 }
                 if(symbol->is_array())
+                    outlog << endl;
+                if(symbol->is_array())
                     outlog << "Size: " << symbol->get_array_size();
                 
                 if(!symbol->is_function())
